@@ -40,7 +40,7 @@ def clean_text(text):
     return text
 
 def preprocess(text):
-    tokens = word_tokenize(text)
+    tokens = text.split()
     tokens = [w for w in tokens if w.isalpha()]
     tokens = [w for w in tokens if w not in stop_words]
     return " ".join(tokens)
