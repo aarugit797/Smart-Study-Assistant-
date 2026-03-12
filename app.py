@@ -9,7 +9,7 @@ from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 
-
+# --- 1. LOAD MODELS & ASSETS ---
 @st.cache_resource
 def load_all_assets():
     with open("models/tfidf.pkl", "rb") as f:
@@ -28,11 +28,9 @@ def load_all_assets():
         diff_le = pickle.load(f)
     return tfidf, subject_model, subject_le, topic_model, topic_le, diff_model, diff_le
 
-
-
 tfidf, subject_model, subject_le, topic_model, topic_le, diff_model, diff_le = load_all_assets()
 
-
+# Preprocessing setups
 nltk.download('punkt')
 nltk.download('stopwords')
 stop_words = set(stopwords.words('english'))
@@ -49,9 +47,9 @@ def preprocess(text):
     tokens = [w for w in tokens if w not in stop_words]
     return " ".join(tokens)
 
+# --- 2. LANGGRAPH CONFIGURATION ---
 
-
-
+# Define the state to include all your ML outputs
 class AgentState(TypedDict):
     question: str
     cleaned_text: str
@@ -66,13 +64,15 @@ def ml_classification_node(state: AgentState):
     processed = preprocess(cleaned)
     vec = tfidf.transform([processed])
 
-
+    # Predict Subject
     sub_pred = subject_model.predict(vec)
     subject = subject_le.inverse_transform(sub_pred)[0]
 
+    # Predict Topic
     topic_pred = topic_model.predict(vec)
     topic = topic_le.inverse_transform(topic_pred)[0]
 
+    # Predict Difficulty
     diff_pred = diff_model.predict(vec)
     difficulty = diff_le.inverse_transform(diff_pred)[0]
 
@@ -85,8 +85,8 @@ def ml_classification_node(state: AgentState):
 
 def llm_answer_node(state: AgentState):
     """Generates the final answer using LangChain"""
-   # Use an environment variable instead of hardcoding
-    os.environ["GROQ_API_KEY"] = st.secrets.get("GROQ_API_KEY", "PASTE_KEY_HERE_FOR_LOCAL_ONLY")
+    # Replace with your key or use st.secrets["GROQ_API_KEY"]
+    os.environ["GROQ_API_KEY"] = "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"
     
     llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3)
     
@@ -114,7 +114,7 @@ def llm_answer_node(state: AgentState):
     
     return {"answer": response.content}
 
-
+# Build the Graph
 workflow = StateGraph(AgentState)
 workflow.add_node("classify", ml_classification_node)
 workflow.add_node("answer", llm_answer_node)
@@ -125,7 +125,7 @@ workflow.add_edge("answer", END)
 
 app_graph = workflow.compile()
 
-
+# --- 3. STREAMLIT UI ---
 
 st.set_page_config(page_title="Smart Study Assistant", page_icon="📚", layout="centered")
 st.title("📚 Smart Study Assistant (AI Tutor)")
@@ -138,9 +138,10 @@ if st.button("Analyze & Answer"):
         st.warning("Please enter a question.")
     else:
         with st.spinner("Processing through LangGraph..."):
-         
+            # Run the LangGraph
             result = app_graph.invoke({"question": user_input})
 
+            # 1. Display ML Results
             st.subheader("📊 Prediction Results")
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -155,6 +156,7 @@ if st.button("Analyze & Answer"):
 
             st.markdown("---")
 
+            # 2. Display AI Answer
             st.subheader("🤖 AI Tutor Explanation")
             st.write(result['answer'])
 
