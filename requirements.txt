@@ -3,4 +3,7 @@ scikit-learn
 pandas
 nltk
 pickle-mixin
-
+langchain
+langgraph
+langchain-community
+langchain-groq
