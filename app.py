@@ -9,7 +9,7 @@ from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 
-# --- 1. LOAD MODELS & ASSETS ---
+
 @st.cache_resource
 def load_all_assets():
     with open("models/tfidf.pkl", "rb") as f:
@@ -30,7 +30,7 @@ def load_all_assets():
 
 tfidf, subject_model, subject_le, topic_model, topic_le, diff_model, diff_le = load_all_assets()
 
-# Preprocessing setups
+
 nltk.download('punkt')
 nltk.download('stopwords')
 stop_words = set(stopwords.words('english'))
@@ -47,9 +47,7 @@ def preprocess(text):
     tokens = [w for w in tokens if w not in stop_words]
     return " ".join(tokens)
 
-# --- 2. LANGGRAPH CONFIGURATION ---
 
-# Define the state to include all your ML outputs
 class AgentState(TypedDict):
     question: str
     cleaned_text: str
@@ -64,7 +62,7 @@ def ml_classification_node(state: AgentState):
     processed = preprocess(cleaned)
     vec = tfidf.transform([processed])
 
-    # Predict Subject
+    
     sub_pred = subject_model.predict(vec)
     subject = subject_le.inverse_transform(sub_pred)[0]
 
@@ -85,7 +83,6 @@ def ml_classification_node(state: AgentState):
 
 def llm_answer_node(state: AgentState):
     """Generates the final answer using LangChain"""
-    # Replace with your key or use st.secrets["GROQ_API_KEY"]
     os.environ["GROQ_API_KEY"] = "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"
     
     llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3)
