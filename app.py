@@ -12,6 +12,20 @@ from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 load_dotenv()
 
+# --- 1. SETTINGS & SECRETS ---
+# Securely fetch API Key
+if "GROQ_API_KEY" in st.secrets:
+    groq_api_key = st.secrets["GROQ_API_KEY"]
+elif os.environ.get("GROQ_API_KEY"):
+    groq_api_key = os.environ.get("GROQ_API_KEY")
+else:
+    st.sidebar.warning("⚠️ No Groq API Key found. Please add it to Streamlit Secrets or enter it below.")
+    groq_api_key = st.sidebar.text_input("Enter Groq API Key:", type="password")
+
+if not groq_api_key:
+    st.error("Please provide a Groq API Key (either in Secrets or Sidebar) to use the AI Tutor.")
+    st.stop()
+
 @st.cache_resource
 def load_all_assets():
     with open("models/tfidf.pkl", "rb") as f:
@@ -85,9 +99,12 @@ def ml_classification_node(state: AgentState):
 
 def llm_answer_node(state: AgentState):
     """Generates the final answer using LangChain"""
-    os.environ["GROQ_API_KEY"] = "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"
     
-    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3)
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile", 
+        temperature=0.3,
+        groq_api_key=groq_api_key
+    )
     
     prompt = ChatPromptTemplate.from_template(
         """You are a Smart Study Assistant. 
@@ -138,7 +155,13 @@ if st.button("Analyze & Answer"):
     else:
         with st.spinner("Processing through LangGraph..."):
             # Run the LangGraph
-            result = app_graph.invoke({"question": user_input})
+            try:
+                result = app_graph.invoke({"question": user_input})
+            except Exception as e:
+                st.error(f"❌ An error occurred: {str(e)}")
+                if "authentication" in str(e).lower() or "401" in str(e):
+                    st.info("💡 Tip: This usually means your Groq API key is invalid or has expired. Please check your sidebar or Streamlit Secrets.")
+                st.stop()
 
             # 1. Display ML Results
             st.subheader("📊 Prediction Results")
